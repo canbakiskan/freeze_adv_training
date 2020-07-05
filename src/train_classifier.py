@@ -146,9 +146,9 @@ def save_checkpoint(model, args):
     logger.info(f"Saved to {classifier_filepath}")
 
 
-def train(model, loaders, optimization, args):
+def train(model, data_loaders, optimization, args):
 
-    (train_loader, test_loader) = loaders
+    (train_loader, test_loader) = data_loaders
     (optimizer, scheduler) = optimization
 
     data_params = {"x_min": 0.0, "x_max": 1.0}
@@ -265,8 +265,7 @@ def train(model, loaders, optimization, args):
             f"Adv  \t loss: {test_loss_adv:.4f} \t acc: {test_acc_adv:.4f}")
 
 
-def main():
-    """ main function to run the experiments """
+def setup():
 
     args = get_arguments()
 
@@ -287,7 +286,6 @@ def main():
     )
 
     logger.info(args)
-    logger.info("\n")
 
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed(args.seed)
@@ -295,7 +293,14 @@ def main():
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
 
-    loaders = cifar10(args)
+    return args, device
+
+
+def main():
+    """ main function to run the experiments """
+
+    args, device = setup()
+    data_loaders = cifar10(args)
 
     model = get_frozen_model(args)
     model.train()
@@ -305,7 +310,7 @@ def main():
         cudnn.benchmark = True
 
     optimization_tuple = get_optimizer_scheduler(
-        model, args, len(loaders[0]))
+        model, args, len(data_loaders[0]))
 
     if args.adv_training_third_time:
         args.NT_first = not args.NT_first
@@ -320,7 +325,7 @@ def main():
 
     else:
         adjust_req_grad_init_weights(model, args)
-        train(model, loaders, optimization_tuple, args)
+        train(model, data_loaders, optimization_tuple, args)
 
     if args.save_checkpoint:
         save_checkpoint(model, args)
